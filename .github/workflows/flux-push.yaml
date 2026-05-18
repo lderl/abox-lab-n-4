@@ -59,24 +59,24 @@ jobs:
             "oci://ghcr.io/${{ github.repository }}"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
-      - name: Tag agentregistry chart as latest
-        run: |
-          flux tag artifact \
-            oci://ghcr.io/${{ github.repository }}/agentregistry-chart:${{ steps.helm-push.outputs.tag }} \
-            --tag latest
+      # # - name: Tag agentregistry chart as latest
+      #   run: |
+      #     flux tag artifact \
+      #       oci://ghcr.io/${{ github.repository }}/agentregistry-chart:${{ steps.helm-push.outputs.tag }} \
+      #       --tag latest
 
-      # ── mcp-governance Helm chart → OCI ──
-      - name: Package and push mcp-governance chart
-        id: helm-push-mcpg
-        run: |
-          TAG=${{ steps.push.outputs.tag }}
-          helm package ./charts/mcp-governance --version "${TAG}" --destination /tmp/helm-pkg
-          helm push "/tmp/helm-pkg/mcp-governance-${TAG}.tgz" \
-            "oci://ghcr.io/${{ github.repository }}"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+      # # ── mcp-governance Helm chart → OCI ──
+      # - name: Package and push mcp-governance chart
+      #   id: helm-push-mcpg
+      #   run: |
+      #     TAG=${{ steps.push.outputs.tag }}
+      #     helm package ./charts/mcp-governance --version "${TAG}" --destination /tmp/helm-pkg
+      #     helm push "/tmp/helm-pkg/mcp-governance-${TAG}.tgz" \
+      #       "oci://ghcr.io/${{ github.repository }}"
+      #     echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
-      - name: Tag mcp-governance chart as latest
-        run: |
-          flux tag artifact \
-            oci://ghcr.io/${{ github.repository }}/mcp-governance-chart:${{ steps.helm-push-mcpg.outputs.tag }} \
-            --tag latest
+      # - name: Tag mcp-governance chart as latest
+      #   run: |
+      #     flux tag artifact \
+      #       oci://ghcr.io/${{ github.repository }}/mcp-governance-chart:${{ steps.helm-push-mcpg.outputs.tag }} \
+      #       --tag latest

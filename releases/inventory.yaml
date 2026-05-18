@@ -32,3 +32,18 @@ spec:
     replicaCount: 1
     httpRoute:
       enabled: false   # доступ через port-forward: kubectl port-forward svc/agentregistry 8080:8080 -n agentregistry
+---
+apiVersion: agentregistry.dev/v1alpha1
+kind: DiscoveryConfig
+metadata:
+  name: abox-discovery
+  namespace: agentregistry
+spec:
+  environments:
+    - name: abox
+      cluster:
+        name: local
+        namespace: agentregistry
+      namespaces:
+        - kagent
+      discoveryEnabled: true

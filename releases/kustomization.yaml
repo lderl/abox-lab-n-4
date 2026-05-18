@@ -7,5 +7,4 @@ resources:
   - lab3/
   # - qdrant.yaml
   - inventory.yaml
-  - inventory/
   # - mcpg.yaml
