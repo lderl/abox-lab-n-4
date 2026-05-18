@@ -1,0 +1,119 @@
+# Default values for agentregistry controller
+
+# Number of controller replicas (use 2+ for HA with leader election)
+replicaCount: 1
+
+image:
+  repository: ghcr.io/den-vasyliev/agentregistry-inventory
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Controller configuration
+controller:
+  # Enable leader election for HA deployments
+  leaderElection: false
+
+  # Log level (info, debug, warn, error)
+  logLevel: info
+
+  # Metrics bind address
+  metricsAddr: ":8081"
+
+  # Health probe bind address
+  probeAddr: ":8082"
+
+# HTTP API configuration
+httpApi:
+  # HTTP API bind address
+  port: 8080
+
+  # MCP server bind port
+  mcpPort: 8083
+
+  # Service type for the HTTP API
+  serviceType: ClusterIP
+
+# CRDs are installed from the crds/ directory.
+# They are automatically installed before other resources and
+# NOT deleted on helm uninstall (Helm standard behavior).
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 10m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Pod Disruption Budget (for HA deployments with replicaCount > 1)
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Azure AD configuration for MSAL browser PKCE flow.
+# Injected as env vars so the Go binary can serve /ui/config.js at runtime.
+# No client secret required — PKCE is a public client flow.
+# Set to true to disable Bearer token auth on admin API and MCP endpoints.
+# Useful during initial setup or when auth is handled entirely by the gateway.
+disableAuth: true
+
+azure:
+  tenantId: ""
+  clientId: ""
+  # redirectUri: override the MSAL redirect URI when it differs from window.location.origin.
+  # Required when the registered Azure AD SPA redirect URI doesn't match the app's origin
+  # (e.g. during migration from NextAuth where the old URI was /api/auth/callback/oidc).
+  # Leave empty to auto-detect from window.location.origin.
+  redirectUri: ""
+
+# HTTPRoute configuration (Gateway API)
+httpRoute:
+  enabled: false
+  hostname: agentregistry.example.com
+  gatewayName: mcp-gateway
+  gatewayNamespace: ""
+  sectionName: https
+
+# MCP route via AgentGateway (AgentgatewayBackend + /mcp rule on the HTTPRoute)
+mcpRoute:
+  enabled: false
+  # Name of the token secret for agentgateway auth
+  authSecretName: agentregistry-mcp-token

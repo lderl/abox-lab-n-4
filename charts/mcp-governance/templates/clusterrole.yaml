@@ -1,0 +1,71 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "mcp-governance.fullname" . }}-controller
+  labels:
+    {{- include "mcp-governance.controllerLabels" . | nindent 4 }}
+rules:
+  - apiGroups: ["agentregistry.dev"]
+    resources:
+      - mcpservercatalogs/status
+      - agentcatalogs/status
+      - skillcatalogs/status
+      - modelcatalogs/status
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["agentregistry.dev"]
+    resources:
+      - mcpservercatalogs
+      - agentcatalogs
+      - skillcatalogs
+      - modelcatalogs
+    verbs: ["get", "list", "watch"]
+  # AgentGateway CRDs
+  - apiGroups: ["agentgateway.dev"]
+    resources:
+      - agentgatewaybackends
+      - agentgatewayparameters
+      - agentgatewaypolicies
+    verbs: ["get", "list", "watch"]
+  # Gateway API resources
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources:
+      - gateways
+      - httproutes
+      - gatewayclasses
+    verbs: ["get", "list", "watch"]
+  # Kagent CRDs
+  - apiGroups: ["kagent.dev"]
+    resources:
+      - agents
+      - mcpservers
+      - remotemcpservers
+    verbs: ["get", "list", "watch"]
+  # Agent Registry inventory CRDs (MCPServerCatalog for Verified Score)
+  - apiGroups: ["agentregistry.dev"]
+    resources:
+      - mcpservercatalogs
+    verbs: ["get", "list", "watch"]
+  # Governance CRDs
+  - apiGroups: ["governance.mcp.io"]
+    resources:
+      - mcpgovernancepolicies
+      - mcpgovernancepolicies/status
+      - governanceevaluations
+      - governanceevaluations/status
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Core resources for service discovery
+  - apiGroups: [""]
+    resources:
+      - services
+      - namespaces
+      - pods
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - statefulsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - networkpolicies
+    verbs: ["get", "list", "watch"]

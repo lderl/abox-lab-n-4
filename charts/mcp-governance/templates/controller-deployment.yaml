@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-governance-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-governance.controllerLabels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.controller.replicas }}
+  selector:
+    matchLabels:
+      {{- include "mcp-governance.controllerSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mcp-governance.controllerSelectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "mcp-governance.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # Tier 2 #15: Pod-level security context — enforce nonroot user and seccomp
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: controller
+          image: {{ include "mcp-governance.controllerImage" . }}
+          imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
+          # Tier 2 #15: Container-level security context — drop all capabilities, read-only FS
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: api
+              containerPort: {{ .Values.controller.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ .Values.controller.port | quote }}
+            {{- if and .Values.governancePolicy.spec.aiAgent.enabled (eq .Values.governancePolicy.spec.aiAgent.provider "gemini") }}
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.controller.googleApiKeySecret | default "mcp-governance-ai-secrets" }}
+                  key: google-api-key
+                  optional: true
+            {{- end }}
+            {{- if and .Values.governancePolicy.spec.aiAgent.enabled (eq .Values.governancePolicy.spec.aiAgent.provider "ollama") }}
+            - name: OLLAMA_HOST
+              value: {{ .Values.governancePolicy.spec.aiAgent.ollamaEndpoint | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: api
+            initialDelaySeconds: {{ .Values.controller.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.controller.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: api
+            initialDelaySeconds: {{ .Values.controller.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.controller.readinessProbe.periodSeconds }}
+          resources:
+            {{- toYaml .Values.controller.resources | nindent 12 }}
+          volumeMounts:
+            - name: skill-patterns
+              mountPath: /etc/mcp-governance/skill-patterns
+              readOnly: true
+      volumes:
+        - name: skill-patterns
+          configMap:
+            name: mcp-governance-skill-patterns
+            optional: true

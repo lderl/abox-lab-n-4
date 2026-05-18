@@ -1,0 +1,69 @@
+{{- if .Values.dashboard.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-governance-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-governance.dashboardLabels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.dashboard.replicas }}
+  selector:
+    matchLabels:
+      {{- include "mcp-governance.dashboardSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mcp-governance.dashboardSelectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: dashboard
+          image: {{ include "mcp-governance.dashboardImage" . }}
+          imagePullPolicy: {{ .Values.dashboard.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: {{ .Values.dashboard.port }}
+              protocol: TCP
+          env:
+            - name: CONTROLLER_API_URL
+              value: {{ include "mcp-governance.controllerApiUrl" . | quote }}
+          volumeMounts:
+            - name: skill-patterns
+              mountPath: /etc/mcp-governance/skill-patterns
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.dashboard.resources | nindent 12 }}
+      volumes:
+        - name: skill-patterns
+          configMap:
+            name: mcp-governance-skill-patterns
+            optional: true
+{{- end }}

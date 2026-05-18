@@ -1,0 +1,200 @@
+# -- Global settings
+# -- Whether to create the Namespace resource (set false when using --create-namespace)
+createNamespace: false
+
+# -- Controller settings
+controller:
+  # -- Number of controller replicas
+  replicas: 1
+  image:
+    # -- Controller image repository
+    repository: localhost/mcp-governance-controller
+    # -- Controller image tag
+    tag: latest
+    # -- Image pull policy (use "Never" for Kind, "Always" for remote registries)
+    pullPolicy: Never
+  # -- Controller API port
+  port: 8090
+  service:
+    # -- Service type for the controller (ClusterIP, NodePort, or LoadBalancer)
+    type: ClusterIP
+    # -- NodePort to expose when type is NodePort (null for auto-assign)
+    nodePort: null
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readinessProbe:
+    initialDelaySeconds: 3
+    periodSeconds: 5
+  # -- Name of the Kubernetes Secret containing the Google API key (key: google-api-key)
+  googleApiKeySecret: "mcp-governance-ai-secrets"
+  serviceAccount:
+    # -- Create a service account for the controller
+    create: true
+    # -- Name of the service account
+    name: mcp-governance-controller
+
+# -- Dashboard settings
+dashboard:
+  # -- Enable the dashboard deployment
+  enabled: true
+  # -- Number of dashboard replicas
+  replicas: 1
+  image:
+    # -- Dashboard image repository
+    repository: localhost/mcp-governance-dashboard
+    # -- Dashboard image tag
+    tag: latest
+    # -- Image pull policy (use "Never" for Kind, "Always" for remote registries)
+    pullPolicy: Never
+  # -- Dashboard port
+  port: 3000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  service:
+    # -- Service type: NodePort for Kind, LoadBalancer or ClusterIP for production
+    type: NodePort
+    # -- NodePort to expose (set to null to auto-assign)
+    nodePort: 30000
+  # -- Controller API URL for the dashboard's server-side proxy (CONTROLLER_API_URL).
+  # -- The dashboard proxies browser requests via Next.js rewrites, so this is
+  # -- a pod-to-pod URL, not a browser-facing one.
+  # -- Leave empty to auto-detect using in-cluster DNS
+  # -- (http://mcp-governance-controller.<namespace>.svc.cluster.local:<port>).
+  # -- Override for local dev, e.g. "http://localhost:8090".
+  apiUrl: ""
+
+# -- CRD installation
+# -- Governance CRDs (MCPGovernancePolicy, GovernanceEvaluation) are installed
+# -- automatically from the chart's crds/ directory. To skip, use: --skip-crds
+crds:
+  # -- Install external stub CRDs for demo (AgentGateway, Kagent)
+  installExternal: false
+
+# -- Sample resources
+samples:
+  # -- Install sample MCPGovernancePolicy and GovernanceEvaluation
+  install: false
+
+# -- Governance policy defaults (used when samples.install is true)
+governancePolicy:
+  name: enterprise-mcp-policy
+  spec:
+    requireAgentGateway: true
+    requireJWTAuth: true
+    requireRBAC: true
+    requireCORS: true
+    requireTLS: true
+    requirePromptGuard: true
+    requireRateLimit: true
+    maxToolsWarning: 10
+    maxToolsCritical: 15
+    scoringWeights:
+      agentGatewayIntegration: 25
+      authentication: 20
+      authorization: 15
+      corsPolicy: 10
+      tlsEncryption: 10
+      promptGuard: 5
+      rateLimit: 5
+      toolScope: 10
+    severityPenalties:
+      critical: 40
+      high: 25
+      medium: 15
+      low: 5
+    targetNamespaces: []
+    # -- Namespaces to exclude from scanning (system namespaces excluded by default)
+    excludeNamespaces:
+      - kube-system
+      - kube-public
+      - kube-node-lease
+      - local-path-storage
+    # -- AI Agent configuration for AI-driven governance scoring
+    aiAgent:
+      # -- Enable AI-driven scoring alongside algorithmic scoring
+      enabled: false
+      # -- LLM provider: "gemini" or "ollama"
+      provider: gemini
+      # -- Model name (e.g. "gemini-2.5-flash", "llama3.1", "qwen2.5")
+      model: "gemini-2.5-flash"
+      # -- Ollama API endpoint (only used when provider is "ollama")
+      ollamaEndpoint: "http://localhost:11434"
+      # -- Interval between periodic AI evaluations (e.g. "5m", "10m", "1h")
+      scanInterval: "5m"
+      # -- Whether periodic AI scanning is active (set false to only allow manual triggers)
+      scanEnabled: true
+    # -- Verified Catalog scoring configuration for MCPServerCatalog inventory.
+    # -- Controls thresholds, category weights, and per-check max scores.
+    verifiedCatalogScoring:
+      # -- Weight for Security category (transport + deployment checks). Weights should sum to 100.
+      securityWeight: 50
+      # -- Weight for Trust category (publisher verification checks).
+      trustWeight: 30
+      # -- Weight for Compliance category (tool scope + usage checks).
+      complianceWeight: 20
+      # -- Score >= this threshold → status "Verified"
+      verifiedThreshold: 70
+      # -- Score >= this threshold (but < verifiedThreshold) → "Unverified". Below → "Rejected"
+      unverifiedThreshold: 50
+      # -- Per-check maximum score overrides. Keys are check IDs.
+      # -- Default scores: PUB-001:10, PUB-002:10, PUB-003:10, SEC-001:15, SEC-002:10,
+      # --   DEP-001:5, DEP-002:10, DEP-003:5, TOOL-001:15, USE-001:10 (total: 100)
+      checkMaxScores:
+        PUB-001: 10
+        PUB-002: 10
+        PUB-003: 10
+        SEC-001: 15
+        SEC-002: 10
+        DEP-001: 5
+        DEP-002: 10
+        DEP-003: 5
+        TOOL-001: 15
+        USE-001: 10
+    # -- Skills Catalog governance configuration for SkillCatalog inventory.
+    # -- Controls security checks, metadata validation, and scoring for AI skills.
+    skillGovernance:
+      # -- Enable Skills Catalog governance and security scanning
+      enabled: true
+      # -- Enable security checks on skill file content (SKL-SEC-001 through SKL-SEC-013)
+      scanRepoContent: true
+      # -- GitHub token for private repository access (loaded from secret in production)
+      githubToken: ""
+      # -- Scan result cache TTL in minutes (prevents repeated scans for the same catalog/revision)
+      scanCacheTTLMinutes: 60
+      # -- Fail evaluation if prompt injection patterns detected (SKL-SEC-001)
+      failOnPromptInjection: true
+      # -- Fail evaluation if privilege escalation patterns detected (SKL-SEC-002)
+      failOnPrivilegeEscalation: true
+      # -- Allowed external domains for safe HTTP calls (e.g., analytics, logging)
+      # -- URLs matching these patterns are not flagged as SSRF/exfiltration
+      allowedExternalDomains:
+        - "api.github.com"
+        - "api.gitlab.com"
+      # -- Skill categories that MUST contain safety guardrail phrases (SKL-SEC-006)
+      # -- Checks for phrases like "requires approval", "confirm before", "dangerous operation"
+      requireSafetyGuardrails:
+        - "database"
+        - "infra"
+        - "admin"
+
+# -- Image pull secrets (for private registries)
+imagePullSecrets: []
+
+# -- Additional labels to apply to all resources
+commonLabels: {}
+
+# -- Additional annotations to apply to all resources
+commonAnnotations: {}

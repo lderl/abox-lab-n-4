@@ -1,0 +1,279 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: mcpgovernancepolicies.governance.mcp.io
+  labels:
+    app.kubernetes.io/name: mcp-governance
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: mcp-governance
+  annotations:
+    meta.helm.sh/release-name: mcp-governance
+    meta.helm.sh/release-namespace: mcp-governance
+spec:
+  group: governance.mcp.io
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                requireAgentGateway:
+                  type: boolean
+                  default: true
+                  description: "Enforces that all MCP servers must route through agentgateway"
+                requireCORS:
+                  type: boolean
+                  default: true
+                  description: "Enforces CORS policy on all MCP endpoints"
+                requireJWTAuth:
+                  type: boolean
+                  default: true
+                  description: "Enforces JWT authentication on all MCP endpoints"
+                requireRBAC:
+                  type: boolean
+                  default: true
+                  description: "Enforces CEL-based RBAC rules on MCP tool access"
+                requirePromptGuard:
+                  type: boolean
+                  default: false
+                  description: "Enforces prompt guard policies on AI backends"
+                requireTLS:
+                  type: boolean
+                  default: true
+                  description: "Enforces TLS on all MCP connections"
+                requireRateLimit:
+                  type: boolean
+                  default: false
+                  description: "Enforces rate limiting on MCP endpoints"
+                requireHardenedDeployment:
+                  type: boolean
+                  default: true
+                  description: "Enforces container security context, NetworkPolicy coverage, and image hygiene checks"
+                scanInterval:
+                  type: string
+                  default: "5m"
+                  description: "Interval between governance scans (e.g. '30s', '5m', '10m', '1h'). Default: '5m'"
+                enableAuditLogging:
+                  type: boolean
+                  default: false
+                  description: "Tier 2 #16: emit structured JSON audit events to stdout on every evaluation"
+                clusterName:
+                  type: string
+                  description: "Tier 2 #16: cluster identifier included in audit log events"
+                maxToolsWarning:
+                  type: integer
+                  default: 10
+                  description: "Warning threshold for number of tools per MCP server (0 = disabled)"
+                maxToolsCritical:
+                  type: integer
+                  default: 15
+                  description: "Critical threshold for number of tools per MCP server (0 = disabled)"
+                scoringWeights:
+                  type: object
+                  properties:
+                    agentGatewayIntegration:
+                      type: integer
+                      default: 25
+                    authentication:
+                      type: integer
+                      default: 20
+                    authorization:
+                      type: integer
+                      default: 15
+                    corsPolicy:
+                      type: integer
+                      default: 10
+                    tlsEncryption:
+                      type: integer
+                      default: 10
+                    promptGuard:
+                      type: integer
+                      default: 10
+                    rateLimit:
+                      type: integer
+                      default: 5
+                    toolScope:
+                      type: integer
+                      default: 5
+                    hardenedDeployment:
+                      type: integer
+                      default: 15
+                severityPenalties:
+                  type: object
+                  description: "Point deductions per finding severity level"
+                  properties:
+                    critical:
+                      type: integer
+                      default: 40
+                      description: "Points deducted per Critical finding"
+                    high:
+                      type: integer
+                      default: 25
+                      description: "Points deducted per High finding"
+                    medium:
+                      type: integer
+                      default: 15
+                      description: "Points deducted per Medium finding"
+                    low:
+                      type: integer
+                      default: 5
+                      description: "Points deducted per Low finding"
+                targetNamespaces:
+                  type: array
+                  description: "Namespaces to monitor. If empty, all namespaces are monitored (recommended)."
+                  items:
+                    type: string
+                excludeNamespaces:
+                  type: array
+                  description: "Namespaces to exclude from monitoring (e.g. kube-system). Applied after targetNamespaces."
+                  items:
+                    type: string
+                aiAgent:
+                  type: object
+                  description: "AI agent configuration for AI-driven governance scoring alongside algorithmic scoring"
+                  properties:
+                    enabled:
+                      type: boolean
+                      default: false
+                      description: "Enable AI-driven governance scoring"
+                    provider:
+                      type: string
+                      default: "gemini"
+                      description: "LLM provider to use: 'gemini' (Google Gemini API) or 'ollama' (local Ollama instance)"
+                      enum:
+                        - gemini
+                        - ollama
+                    model:
+                      type: string
+                      default: "gemini-2.5-flash"
+                      description: "Model name (e.g. 'gemini-2.5-flash' for Gemini, 'llama3.1' or 'qwen2.5' for Ollama)"
+                    ollamaEndpoint:
+                      type: string
+                      default: "http://localhost:11434"
+                      description: "Ollama API base URL (only used when provider is 'ollama')"
+                    scanInterval:
+                      type: string
+                      default: "5m"
+                      description: "Interval between periodic AI evaluations (e.g. '5m', '10m', '1h')"
+                    scanEnabled:
+                      type: boolean
+                      default: true
+                      description: "Whether periodic AI scanning is active. Set to false to only allow manual triggers."
+                verifiedCatalogScoring:
+                  type: object
+                  description: "Scoring configuration for Verified Catalog (MCPServerCatalog inventory). All fields optional — omitted values use built-in defaults."
+                  properties:
+                    securityWeight:
+                      type: integer
+                      default: 50
+                      description: "Weight for Security category (transport + deployment checks). Category weights should sum to 100."
+                    trustWeight:
+                      type: integer
+                      default: 30
+                      description: "Weight for Trust category (publisher verification checks). Category weights should sum to 100."
+                    complianceWeight:
+                      type: integer
+                      default: 20
+                      description: "Weight for Compliance category (tool scope + usage checks). Category weights should sum to 100."
+                    verifiedThreshold:
+                      type: integer
+                      default: 70
+                      description: "Score >= this threshold → status 'Verified'."
+                    unverifiedThreshold:
+                      type: integer
+                      default: 50
+                      description: "Score >= this threshold (but < verifiedThreshold) → status 'Unverified'. Below → 'Rejected'."
+                    checkMaxScores:
+                      type: object
+                      description: "Per-check maximum score overrides. Keys are check IDs (PUB-001, PUB-002, PUB-003, SEC-001, SEC-002, DEP-001, DEP-002, DEP-003, TOOL-001, USE-001)."
+                      additionalProperties:
+                        type: integer
+                skillGovernance:
+                  type: object
+                  description: "Skill Governance configuration for SkillCatalog CRs. All fields optional — omitted values use built-in defaults."
+                  properties:
+                    enabled:
+                      type: boolean
+                      default: true
+                      description: "Enable skill governance checks (SKL-001 through SKL-SEC-006)"
+                    scanRepoContent:
+                      type: boolean
+                      default: false
+                      description: "Fetch and pattern-scan GitHub repository content referenced in SkillCatalog.spec.repository.url"
+                    githubToken:
+                      type: string
+                      description: "Personal access token for private GitHub repositories (optional)"
+                    scanCacheTTLMinutes:
+                      type: integer
+                      default: 60
+                      description: "Cache duration for scan results in minutes"
+                    failOnPromptInjection:
+                      type: boolean
+                      default: true
+                      description: "Mark skill score as failing (0/100) when SKL-SEC-001 prompt injection pattern is detected"
+                    failOnPrivilegeEscalation:
+                      type: boolean
+                      default: true
+                      description: "Mark skill score as failing (0/100) when SKL-SEC-002 privilege escalation pattern is detected"
+                    allowedExternalDomains:
+                      type: array
+                      description: "List of external domains permitted for data transfers. Suppress SKL-SEC-003 (data exfiltration) for URLs matching these domains."
+                      items:
+                        type: string
+                    requireSafetyGuardrails:
+                      type: array
+                      description: "Skill categories that MUST contain safety guardrail phrases (SKL-SEC-006). Defaults to ['database', 'infra', 'admin']."
+                      items:
+                        type: string
+              type: object
+              properties:
+                phase:
+                  type: string
+                clusterScore:
+                  type: integer
+                lastEvaluationTime:
+                  type: string
+                  format: date-time
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Score
+          type: integer
+          jsonPath: .status.clusterScore
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Last Evaluated
+          type: string
+          jsonPath: .status.lastEvaluationTime
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+  scope: Cluster
+  names:
+    plural: mcpgovernancepolicies
+    singular: mcpgovernancepolicy
+    kind: MCPGovernancePolicy
+    shortNames:
+      - mgp

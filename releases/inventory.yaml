@@ -1,0 +1,34 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: agentregistry
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: oci://ghcr.io/lderl/abox-lab-n-3/agentregistry-chart
+  ref:
+    tag: latest
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: agentregistry
+  namespace: flux-system
+spec:
+  interval: 1h
+  releaseName: agentregistry
+  targetNamespace: agentregistry
+  dependsOn:
+    - name: kagent
+      namespace: kagent
+  chartRef:
+    kind: OCIRepository
+    name: agentregistry
+    namespace: flux-system
+  install:
+    createNamespace: true
+  values:
+    disableAuth: true
+    replicaCount: 1
+    httpRoute:
+      enabled: false   # доступ через port-forward: kubectl port-forward svc/agentregistry 8080:8080 -n agentregistry

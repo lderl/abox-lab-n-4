@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "agentregistry.fullname" . }}-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agentregistry.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agentregistry.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "agentregistry.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: controller
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "agentregistry.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: controller
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --metrics-bind-address={{ .Values.controller.metricsAddr }}
+            - --health-probe-bind-address={{ .Values.controller.probeAddr }}
+            {{- if .Values.controller.leaderElection }}
+            - --leader-elect=true
+            {{- end }}
+            - --enable-http-api=true
+            - --http-api-address=:{{ .Values.httpApi.port }}
+            - --mcp-address=:{{ .Values.httpApi.mcpPort }}
+            - --log-level={{ .Values.controller.logLevel }}
+          env:
+            {{- if not .Values.disableAuth }}
+            - name: AGENTREGISTRY_AUTH_ENABLED
+              value: "true"
+            {{- end }}
+            {{- if .Values.azure.tenantId }}
+            - name: AZURE_AD_TENANT_ID
+              value: "{{ .Values.azure.tenantId }}"
+            - name: AZURE_AD_CLIENT_ID
+              value: "{{ .Values.azure.clientId }}"
+            {{- end }}
+            {{- if .Values.azure.redirectUri }}
+            - name: AZURE_AD_REDIRECT_URI
+              value: "{{ .Values.azure.redirectUri }}"
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.httpApi.port }}
+              protocol: TCP
+            - name: mcp
+              containerPort: {{ .Values.httpApi.mcpPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: 8081
+              protocol: TCP
+            - name: health
+              containerPort: 8082
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

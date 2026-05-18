@@ -1,0 +1,24 @@
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: web-fetch-agent
+  namespace: kagent
+spec:
+  description: "Агент що вміє читати веб-сторінки за URL"
+  type: Declarative
+  declarative:
+    modelConfig: gpt-config
+    systemMessage: |-
+      Ти веб-агент. Твоє завдання — отримувати вміст веб-сторінок за посиланням
+      та відповідати на питання про їх зміст.
+      # Правила
+      - Завжди використовуй інструмент fetch щоб отримати актуальні дані
+      - Коротко підсумовуй що знайшов
+      - Відповідай українською мовою
+    tools:
+    - type: McpServer
+      mcpServer:
+        name: fetch-mcp-server
+        kind: MCPServer
+        toolNames:
+        - fetch

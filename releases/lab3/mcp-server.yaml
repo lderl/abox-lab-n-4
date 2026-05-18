@@ -1,0 +1,15 @@
+apiVersion: kagent.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: fetch-mcp-server
+  namespace: kagent
+spec:
+  deployment:
+    image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+    port: 3000
+    cmd: uvx
+    args:
+      - "mcp-server-fetch"
+  transportType: stdio
+  stdioTransport: {}
+  timeout: "60s"

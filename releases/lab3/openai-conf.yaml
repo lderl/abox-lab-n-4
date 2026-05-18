@@ -1,0 +1,62 @@
+# Секрети openai-token керуються вручну через `make secret` і НЕ є частиною GitOps.
+# Flux не чіпає їх — вони створюються один раз на кластері:
+#   export OPENAI_API_KEY=sk-...
+#   make secret
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: openai
+  namespace: agentgateway-system
+spec:
+  ai:
+    provider:
+      openai:
+        model: "gpt-5.4-mini"
+  policies:
+    auth:
+      secretRef:
+        name: openai-token
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: agentgateway-proxy
+  namespace: agentgateway-system
+spec:
+  gatewayClassName: agentgateway
+  listeners:
+  - protocol: HTTP
+    port: 8082
+    name: http
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: openai
+  namespace: agentgateway-system
+spec:
+  parentRefs:
+    - name: agentgateway-proxy
+      namespace: agentgateway-system
+  rules:
+    - backendRefs:
+      - name: openai
+        namespace: agentgateway-system
+        group: agentgateway.dev
+        kind: AgentgatewayBackend
+---
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: gpt-config
+  namespace: kagent
+spec:
+  provider: OpenAI
+  model: "gpt-5.4-mini"
+  apiKeySecret: "openai-token"
+  apiKeySecretKey: "Authorization"
+  openAI:
+    baseUrl: "http://agentgateway-proxy.agentgateway-system.svc.cluster.local:8082/v1"
