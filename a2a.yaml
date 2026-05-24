@@ -1,0 +1,73 @@
+---
+# ConfigMap зі скриптом — монтується в pod як файл
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: a2a-client-script
+  namespace: kagent
+data:
+  a2a_client.py: |
+    import json, uuid, urllib.request, os
+
+    AGENT_BASE = os.environ.get("AGENT_URL", "http://web-fetch-agent.kagent:8080")
+    TARGET_URL = os.environ.get("TARGET_URL", "https://example.com")
+
+    def rpc(url, payload):
+        req = urllib.request.Request(
+            url, data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"}, method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read())
+
+    # Крок 1: Discovery
+    with urllib.request.urlopen(f"{AGENT_BASE}/.well-known/agent-card.json", timeout=10) as r:
+        card = json.loads(r.read())
+    print(f"[A2A] Агент: {card['name']}  (A2A v{card['protocolVersion']})")
+
+    # Крок 2: message/send
+    resp = rpc(AGENT_BASE, {
+        "jsonrpc": "2.0", "method": "message/send", "id": 1,
+        "params": {"message": {
+            "messageId": str(uuid.uuid4()), "role": "user",
+            "parts": [{"kind": "text", "text": f"Що знаходиться на сторінці {TARGET_URL}? Коротко."}]
+        }}
+    })
+
+    # Крок 3: результат з artifacts
+    result = resp["result"]
+    print(f"[A2A] Статус: {result.get('status', {}).get('state')}")
+    print("=" * 60)
+    for artifact in result.get("artifacts", []):
+        for part in artifact.get("parts", []):
+            if part.get("kind") == "text":
+                print(part["text"])
+    print(f"[A2A] Готово! → {card['name']}")
+---
+# Job — одноразово запускає скрипт і завершується
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: a2a-client
+  namespace: kagent
+spec:
+  ttlSecondsAfterFinished: 300   # автоматично видалиться через 5 хвилин
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: a2a-client
+        image: python:3.12-slim
+        command: ["python", "/scripts/a2a_client.py"]
+        env:
+        - name: TARGET_URL
+          value: "https://itc.ua"
+        - name: AGENT_URL
+          value: "http://web-fetch-agent.kagent:8080"
+        volumeMounts:
+        - name: script
+          mountPath: /scripts
+      volumes:
+      - name: script
+        configMap:
+          name: a2a-client-script

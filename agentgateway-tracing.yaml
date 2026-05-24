@@ -1,0 +1,32 @@
+---
+# AgentgatewayPolicy — трейсинг через OTLP gRPC прямо в Phoenix
+# Документація: https://agentgateway.dev/docs/kubernetes/latest/observability/tracing/
+# AgentgatewayPolicy.spec.frontend.tracing.backendRef вказує на OTLP-сумісний сервіс
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: tracing-phoenix
+  namespace: agentgateway-system
+spec:
+  targetRefs:
+    - kind: Gateway
+      name: agentgateway-external
+      group: gateway.networking.k8s.io
+  frontend:
+    tracing:
+      backendRef:
+        name: phoenix-svc
+        namespace: phoenix
+        port: 4317
+      protocol: GRPC
+      clientSampling: "true"
+      randomSampling: "true"
+      resources:
+        - name: deployment.environment.name
+          expression: '"lab4"'
+        - name: service.version
+          expression: '"2.2.1"'
+      attributes:
+        add:
+          - name: gateway
+            expression: '"agentgateway-external"'
